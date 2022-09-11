@@ -4,7 +4,8 @@ from sqlalchemy import select, delete
 
 from app.base.base_accessor import BaseAccessor
 from app.words.models import (
-    WordModel, SettingModel,
+    WordModel,
+    SettingModel,
 )
 
 
@@ -23,7 +24,9 @@ class WordsAccessor(BaseAccessor):
             await session.commit()
         return word_id
 
-    async def patch_word(self, word_id, title: str = None, is_correct: bool = None) -> WordModel:
+    async def patch_word(
+        self, word_id, title: str = None, is_correct: bool = None
+    ) -> WordModel:
         query = select(WordModel).where(WordModel.id == word_id)
         async with self.app.database.session() as session:
             result = await session.execute(query)
@@ -36,7 +39,9 @@ class WordsAccessor(BaseAccessor):
                 await session.commit()
         return word
 
-    async def list_words(self, is_correct: Optional[bool] = None) -> list[WordModel]:
+    async def list_words(
+        self, is_correct: Optional[bool] = None
+    ) -> list[WordModel]:
         query = select(WordModel)
         if is_correct is not None:
             query = query.where(WordModel.is_correct == is_correct)
@@ -76,7 +81,9 @@ class WordsAccessor(BaseAccessor):
             await session.commit()
         return setting_id
 
-    async def patch_setting(self, setting_id, title: str = None, timeout: bool = None) -> SettingModel:
+    async def patch_setting(
+        self, setting_id, title: str = None, timeout: bool = None
+    ) -> SettingModel:
         query = select(SettingModel).where(SettingModel.id == setting_id)
         async with self.app.database.session() as session:
             result = await session.execute(query)
@@ -104,7 +111,9 @@ class WordsAccessor(BaseAccessor):
             return
         return setting
 
-    async def get_setting_by_id(self, setting_id: int) -> Optional[SettingModel]:
+    async def get_setting_by_id(
+        self, setting_id: int
+    ) -> Optional[SettingModel]:
         query = select(SettingModel).where(SettingModel.id == setting_id)
         async with self.app.database.session() as session:
             response = await session.execute(query)
@@ -112,3 +121,5 @@ class WordsAccessor(BaseAccessor):
         if setting is None:
             return
         return setting
+
+

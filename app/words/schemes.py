@@ -1,4 +1,10 @@
-from marshmallow import Schema, fields, validates_schema, ValidationError, validate
+from marshmallow import (
+    Schema,
+    fields,
+    validates_schema,
+    ValidationError,
+    validate,
+)
 
 
 class WordSchema(Schema):

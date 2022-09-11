@@ -1,5 +1,6 @@
 import typing
 
+
 from app.store.database.database import Database
 
 if typing.TYPE_CHECKING:

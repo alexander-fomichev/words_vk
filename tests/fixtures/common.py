@@ -51,8 +51,8 @@ async def db_session(server):
     real_session = server.database.session
     async with server.database._engine.begin() as conn:
         server.database.session = sessionmaker(
-                bind=conn, expire_on_commit=False, class_=AsyncSession
-            )
+            bind=conn, expire_on_commit=False, class_=AsyncSession
+        )
         yield server.database.session
         await conn.rollback()
     server.database.session = real_session

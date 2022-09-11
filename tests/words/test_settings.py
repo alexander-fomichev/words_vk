@@ -17,7 +17,9 @@ class TestSettingStore:
     async def test_create_setting(self, cli, store: Store, clear_settings):
         setting_title = "test_setting"
         setting_timeout = 30
-        setting = await store.words.create_setting(setting_title, setting_timeout)
+        setting = await store.words.create_setting(
+            setting_title, setting_timeout
+        )
         assert type(setting) is SettingModel
 
         async with cli.app.database.session() as session:
@@ -26,7 +28,9 @@ class TestSettingStore:
 
         assert len(words) == 1
         async with cli.app.database.session() as session:
-            res = await session.execute(select(SettingModel).where(SettingModel.title == setting_title))
+            res = await session.execute(
+                select(SettingModel).where(SettingModel.title == setting_title)
+            )
             new_setting = res.scalar()
         assert new_setting.title == setting_title
         assert new_setting.timeout == setting_timeout
@@ -38,11 +42,15 @@ class TestSettingStore:
             await store.words.create_setting(setting_1.title, setting_1.timeout)
         assert exc_info.value.orig.pgcode == "23505"
 
-    async def test_get_setting_by_id(self, store: Store, setting_1: SettingModel):
+    async def test_get_setting_by_id(
+        self, store: Store, setting_1: SettingModel
+    ):
         setting = await store.words.get_setting_by_id(setting_1.id)
         assert setting == setting_1
 
-    async def test_get_setting_by_title(self, store: Store, setting_1: SettingModel):
+    async def test_get_setting_by_title(
+        self, store: Store, setting_1: SettingModel
+    ):
         setting = await store.words.get_setting_by_title(setting_1.title)
         assert setting == setting_1
 
@@ -57,20 +65,34 @@ class TestSettingStore:
         settings = await store.words.list_settings()
         assert settings == [setting_1, setting_2]
 
-    async def test_delete_setting_by_id(self, store: Store, setting_1: SettingModel):
+    async def test_delete_setting_by_id(
+        self, store: Store, setting_1: SettingModel
+    ):
         setting_id = await store.words.delete_setting(setting_1.id)
         assert setting_id == setting_1.id
         setting = await store.words.get_setting_by_id(setting_1.id)
         assert setting is None
 
-    async def test_patch_setting_by_id(self, cli, store: Store, setting_1: SettingModel, setting_2: SettingModel):
-        setting_1_updated = await store.words.patch_setting(setting_1.id, title="измененнаянастройка", timeout=setting_2.timeout)
+    async def test_patch_setting_by_id(
+        self,
+        cli,
+        store: Store,
+        setting_1: SettingModel,
+        setting_2: SettingModel,
+    ):
+        setting_1_updated = await store.words.patch_setting(
+            setting_1.id, title="измененнаянастройка", timeout=setting_2.timeout
+        )
         assert setting_1_updated.timeout == setting_2.timeout
         assert setting_1_updated.title == "измененнаянастройка"
         assert setting_1_updated.id == setting_1.id
 
-    async def test_patch_title(self, cli, store: Store, setting_1: SettingModel):
-        setting_1_updated = await store.words.patch_setting(setting_1.id, title="измененнаянастройка")
+    async def test_patch_title(
+        self, cli, store: Store, setting_1: SettingModel
+    ):
+        setting_1_updated = await store.words.patch_setting(
+            setting_1.id, title="измененнаянастройка"
+        )
         assert setting_1_updated.timeout == setting_1.timeout
         assert setting_1_updated.title == "измененнаянастройка"
         assert setting_1_updated.id == setting_1.id
@@ -80,10 +102,7 @@ class TestSettingAddView:
     async def test_unauthorized(self, cli):
         resp = await cli.post(
             "/words.add_setting",
-            json={
-                "title": "настройканеавторизовано",
-                "timeout": 30
-            },
+            json={"title": "настройканеавторизовано", "timeout": 30},
         )
         assert resp.status == 401
         data = await resp.json()
@@ -93,15 +112,16 @@ class TestSettingAddView:
         settings_before = await store.words.list_settings()
         resp = await authed_cli.post(
             "/words.add_setting",
-            json={
-                "title": "настройкаавторизовано",
-                "timeout": 45
-            },
+            json={"title": "настройкаавторизовано", "timeout": 45},
         )
         assert resp.status == 200
         data = await resp.json()
         assert data == ok_response(
-            data={"id": data["data"]["id"], "title": "настройкаавторизовано", "timeout": 45},
+            data={
+                "id": data["data"]["id"],
+                "title": "настройкаавторизовано",
+                "timeout": 45,
+            },
         )
         setting_by_id = await store.words.get_setting_by_id(data["data"]["id"])
         assert setting_by_id is not None
@@ -125,7 +145,9 @@ class TestSettingAddView:
         assert data["data"]["title"][0] == "Missing data for required field."
 
     async def test_missing_timeout(self, authed_cli):
-        resp = await authed_cli.post("/words.add_setting", json={"title": "нетаймаута"})
+        resp = await authed_cli.post(
+            "/words.add_setting", json={"title": "нетаймаута"}
+        )
         assert resp.status == 400
         data = await resp.json()
         assert data["status"] == "bad_request"
@@ -140,10 +162,7 @@ class TestSettingAddView:
     async def test_conflict(self, authed_cli, setting_1: SettingModel):
         resp = await authed_cli.post(
             "/words.add_setting",
-            json={
-                "title": setting_1.title,
-                "timeout": setting_1.timeout
-            },
+            json={"title": setting_1.title, "timeout": setting_1.timeout},
         )
         assert resp.status == 409
         data = await resp.json()
@@ -163,13 +182,21 @@ class TestSettingsListView:
         data = await resp.json()
         assert data == ok_response(data={"settings": []})
 
-    async def test_one(self, authed_cli, clear_settings, setting_1: SettingModel):
+    async def test_one(
+        self, authed_cli, clear_settings, setting_1: SettingModel
+    ):
         resp = await authed_cli.get("/words.list_settings")
         assert resp.status == 200
         data = await resp.json()
         assert data == ok_response(data={"settings": [asdict(setting_1)]})
 
-    async def test_several(self, authed_cli, clear_settings, setting_1: SettingModel, setting_2: SettingModel):
+    async def test_several(
+        self,
+        authed_cli,
+        clear_settings,
+        setting_1: SettingModel,
+        setting_2: SettingModel,
+    ):
         resp = await authed_cli.get("/words.list_settings")
         assert resp.status == 200
         data = await resp.json()
@@ -188,10 +215,7 @@ class TestIntegration:
     async def test_success(self, authed_cli, clear_settings):
         resp = await authed_cli.post(
             "/words.add_setting",
-            json={
-                "title": "тестинтеграция",
-                "timeout": 45
-            },
+            json={"title": "тестинтеграция", "timeout": 45},
         )
         assert resp.status == 200
         data = await resp.json()
@@ -203,7 +227,11 @@ class TestIntegration:
         assert data == ok_response(
             data={
                 "settings": [
-                    asdict(SettingModel(id=setting_id, title="тестинтеграция", timeout=45))
+                    asdict(
+                        SettingModel(
+                            id=setting_id, title="тестинтеграция", timeout=45
+                        )
+                    )
                 ]
             }
         )
@@ -211,43 +239,39 @@ class TestIntegration:
 
 class TestSettingsPatchView:
     async def test_unauthorized(self, cli):
-        resp = await cli.post("/words.patch_word",
-                              json={
-                                  "id": 1,
-                                  "title": "измененноеслово",
-                                  "timeout": 120
-                              },
-                              )
+        resp = await cli.post(
+            "/words.patch_word",
+            json={"id": 1, "title": "измененноеслово", "timeout": 120},
+        )
         assert resp.status == 401
         data = await resp.json()
         assert data["status"] == "unauthorized"
 
-    async def test_success(self, authed_cli, clear_settings, setting_1: SettingModel):
+    async def test_success(
+        self, authed_cli, clear_settings, setting_1: SettingModel
+    ):
         resp = await authed_cli.post(
             "/words.patch_setting",
             json={
                 "id": setting_1.id,
                 "title": "измененноеслово",
-                "timeout": 120
+                "timeout": 120,
             },
         )
         assert resp.status == 200
         data = await resp.json()
-        assert data == ok_response(data={
+        assert data == ok_response(
+            data={
                 "id": setting_1.id,
                 "title": "измененноеслово",
-                "timeout": 120
+                "timeout": 120,
             }
         )
 
     async def test_not_found(self, authed_cli, clear_settings):
         resp = await authed_cli.post(
             "/words.patch_setting",
-            json={
-                "id": 1,
-                "title": "измененноеслово",
-                "timeout": 45
-            },
+            json={"id": 1, "title": "измененноеслово", "timeout": 45},
         )
         assert resp.status == 404
         data = await resp.json()
@@ -258,15 +282,15 @@ class TestSettingsDeleteView:
     async def test_unauthorized(self, cli):
         resp = await cli.post(
             "/words.delete_setting",
-            json={
-                "id": 1
-            },
+            json={"id": 1},
         )
         assert resp.status == 401
         data = await resp.json()
         assert data["status"] == "unauthorized"
 
-    async def test_success(self, authed_cli, clear_settings, setting_1: SettingModel):
+    async def test_success(
+        self, authed_cli, clear_settings, setting_1: SettingModel
+    ):
         resp = await authed_cli.post(
             "/words.delete_setting",
             json={
@@ -301,7 +325,9 @@ class TestSettingsGetView:
         data = await resp.json()
         assert data["status"] == "unauthorized"
 
-    async def test_success(self, authed_cli, clear_settings, setting_1: SettingModel):
+    async def test_success(
+        self, authed_cli, clear_settings, setting_1: SettingModel
+    ):
         resp = await authed_cli.get(
             "/words.get_setting",
             params={

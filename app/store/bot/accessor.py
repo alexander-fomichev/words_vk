@@ -12,17 +12,17 @@ if typing.TYPE_CHECKING:
     from app.web.app import Application
 
 
-class AdminAccessor(BaseAccessor):
-    async def get_by_email(self, email: str) -> Optional[AdminModel]:
-        query = select(AdminModel).where(AdminModel.email == email)
+class GameAccessor(BaseAccessor):
+    async def get_game_by_peer_id(self, peer_id: str) -> Optional[AdminModel]:
+        query = select(GameModel).where(GameModel.peer_id == peer_id)
         async with self.app.database.session() as session:
             answer = await session.execute(query)
-            res = answer.first()
+            res = answer.scalar()
             if res:
-                return res[0]
+                res
             return
 
-    async def create_admin(self, email: str, password: str) -> AdminModel:
+    async def create_game(self, email: str, password: str) -> GameModel:
         admin = AdminModel(
             email=email,
             password=str(sha256(password.encode("utf-8")).hexdigest()),
@@ -32,14 +32,3 @@ class AdminAccessor(BaseAccessor):
             await session.commit()
         return admin
 
-    async def connect(self, app: "Application"):
-        # while not app.database.session:
-        #     await asyncio.sleep(3)
-        email = app.config.admin.email
-        password = app.config.admin.password
-        try:
-            user = await self.create_admin(email, password)
-            return user
-        except IntegrityError as e:
-            if e.orig.pgcode == "23505":
-                pass

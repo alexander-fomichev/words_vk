@@ -16,12 +16,16 @@ class AdminModel:
     __tablename__ = "admins"
     __sa_dataclass_metadata_key__ = "sa"
 
-
     email: str = field(
         metadata={"sa": Column(String, nullable=False, unique=True)}
     )
     id: Optional[uuid.UUID] = field(
-        default=None, metadata={"sa": Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)}
+        default=None,
+        metadata={
+            "sa": Column(
+                UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+            )
+        },
     )
     password: str = field(
         default=None, metadata={"sa": Column(String, nullable=False)}

@@ -26,7 +26,9 @@ class TestWordStore:
 
         assert len(words) == 1
         async with cli.app.database.session() as session:
-            res = await session.execute(select(WordModel).where(WordModel.title == word_title))
+            res = await session.execute(
+                select(WordModel).where(WordModel.title == word_title)
+            )
             new_word = res.scalar()
         assert new_word.title == word_title
         assert new_word.is_correct == word_is_correct
@@ -57,9 +59,13 @@ class TestWordStore:
         words = await store.words.list_words()
         assert words == [word_1, word_2]
         words = await store.words.list_words(True)
-        assert words == [word_1, ]
+        assert words == [
+            word_1,
+        ]
         words = await store.words.list_words(False)
-        assert words == [word_2, ]
+        assert words == [
+            word_2,
+        ]
 
     async def test_delete_word_by_id(self, store: Store, word_1: WordModel):
         word_id = await store.words.delete_word(word_1.id)
@@ -67,20 +73,30 @@ class TestWordStore:
         word = await store.words.get_word_by_id(word_1.id)
         assert word is None
 
-    async def test_patch_word_by_id(self, cli, store: Store, word_1: WordModel, word_2: WordModel):
-        word_1_updated = await store.words.patch_word(word_1.id, title="измененноеслово", is_correct=word_2.is_correct)
+    async def test_patch_word_by_id(
+        self, cli, store: Store, word_1: WordModel, word_2: WordModel
+    ):
+        word_1_updated = await store.words.patch_word(
+            word_1.id, title="измененноеслово", is_correct=word_2.is_correct
+        )
         assert word_1_updated.is_correct == word_2.is_correct
         assert word_1_updated.title == "измененноеслово"
         assert word_1_updated.id == word_1.id
 
     async def test_patch_title(self, cli, store: Store, word_1: WordModel):
-        word_1_updated = await store.words.patch_word(word_1.id, title="измененноеслово")
+        word_1_updated = await store.words.patch_word(
+            word_1.id, title="измененноеслово"
+        )
         assert word_1_updated.is_correct == word_1.is_correct
         assert word_1_updated.title == "измененноеслово"
         assert word_1_updated.id == word_1.id
 
-    async def test_patch_is_correct(self, cli, store: Store, word_1: WordModel, word_2: WordModel):
-        word_1_updated = await store.words.patch_word(word_1.id, is_correct=word_2.is_correct)
+    async def test_patch_is_correct(
+        self, cli, store: Store, word_1: WordModel, word_2: WordModel
+    ):
+        word_1_updated = await store.words.patch_word(
+            word_1.id, is_correct=word_2.is_correct
+        )
         assert word_1_updated.is_correct == word_2.is_correct
         assert word_1_updated.title == word_1.title
         assert word_1_updated.id == word_1.id
@@ -90,10 +106,7 @@ class TestWordAddView:
     async def test_unauthorized(self, cli):
         resp = await cli.post(
             "/words.add_word",
-            json={
-                "title": "словонеавторизовано",
-                "is_correct": True
-            },
+            json={"title": "словонеавторизовано", "is_correct": True},
         )
         assert resp.status == 401
         data = await resp.json()
@@ -103,21 +116,20 @@ class TestWordAddView:
         words_before = await store.words.list_words()
         resp = await authed_cli.post(
             "/words.add_word",
-            json={
-                "title": "словоавторизовано",
-                "is_correct": True
-            },
+            json={"title": "словоавторизовано", "is_correct": True},
         )
         assert resp.status == 200
         data = await resp.json()
         assert data == ok_response(
-            data={"id": data["data"]["id"], "title": "словоавторизовано", "is_correct": True},
+            data={
+                "id": data["data"]["id"],
+                "title": "словоавторизовано",
+                "is_correct": True,
+            },
         )
         word_by_id = await store.words.get_word_by_id(data["data"]["id"])
         assert word_by_id is not None
-        word_by_title = await store.words.get_word_by_title(
-            "словоавторизовано"
-        )
+        word_by_title = await store.words.get_word_by_title("словоавторизовано")
         assert word_by_title is not None
 
         assert word_by_id.id == word_by_title.id
@@ -128,18 +140,24 @@ class TestWordAddView:
         assert len(words) == len(words_before) + 1
 
     async def test_missing_title(self, authed_cli):
-        resp = await authed_cli.post("/words.add_word", json={"is_correct": True})
+        resp = await authed_cli.post(
+            "/words.add_word", json={"is_correct": True}
+        )
         assert resp.status == 400
         data = await resp.json()
         assert data["status"] == "bad_request"
         assert data["data"]["title"][0] == "Missing data for required field."
 
     async def test_missing_is_correct(self, authed_cli):
-        resp = await authed_cli.post("/words.add_word", json={"title": "нетизкоррект"})
+        resp = await authed_cli.post(
+            "/words.add_word", json={"title": "нетизкоррект"}
+        )
         assert resp.status == 400
         data = await resp.json()
         assert data["status"] == "bad_request"
-        assert data["data"]["is_correct"][0] == "Missing data for required field."
+        assert (
+            data["data"]["is_correct"][0] == "Missing data for required field."
+        )
 
     async def test_different_method(self, authed_cli):
         resp = await authed_cli.get("/words.add_word", json={})
@@ -150,10 +168,7 @@ class TestWordAddView:
     async def test_conflict(self, authed_cli, word_1: WordModel):
         resp = await authed_cli.post(
             "/words.add_word",
-            json={
-                "title": word_1.title,
-                "is_correct": word_1.is_correct
-            },
+            json={"title": word_1.title, "is_correct": word_1.is_correct},
         )
         assert resp.status == 409
         data = await resp.json()
@@ -179,7 +194,9 @@ class TestWordsListView:
         data = await resp.json()
         assert data == ok_response(data={"words": [asdict(word_1)]})
 
-    async def test_several(self, authed_cli, clear_words, word_1: WordModel, word_2: WordModel):
+    async def test_several(
+        self, authed_cli, clear_words, word_1: WordModel, word_2: WordModel
+    ):
         resp = await authed_cli.get("/words.list_words")
         assert resp.status == 200
         data = await resp.json()
@@ -198,10 +215,7 @@ class TestIntegration:
     async def test_success(self, authed_cli, clear_words):
         resp = await authed_cli.post(
             "/words.add_word",
-            json={
-                "title": "тестинтеграция",
-                "is_correct": True
-            },
+            json={"title": "тестинтеграция", "is_correct": True},
         )
         assert resp.status == 200
         data = await resp.json()
@@ -213,7 +227,11 @@ class TestIntegration:
         assert data == ok_response(
             data={
                 "words": [
-                    asdict(WordModel(id=word_id, title="тестинтеграция", is_correct=True))
+                    asdict(
+                        WordModel(
+                            id=word_id, title="тестинтеграция", is_correct=True
+                        )
+                    )
                 ]
             }
         )
@@ -232,26 +250,23 @@ class TestWordsPatchView:
             json={
                 "id": word_1.id,
                 "title": "измененноеслово",
-                "is_correct": True
+                "is_correct": True,
             },
         )
         assert resp.status == 200
         data = await resp.json()
-        assert data == ok_response(data={
+        assert data == ok_response(
+            data={
                 "id": word_1.id,
                 "title": "измененноеслово",
-                "is_correct": True
+                "is_correct": True,
             }
         )
 
     async def test_not_found(self, authed_cli, clear_words):
         resp = await authed_cli.post(
             "/words.patch_word",
-            json={
-                "id": 1,
-                "title": "измененноеслово",
-                "is_correct": True
-            },
+            json={"id": 1, "title": "измененноеслово", "is_correct": True},
         )
         assert resp.status == 404
         data = await resp.json()
@@ -262,9 +277,7 @@ class TestWordsDeleteView:
     async def test_unauthorized(self, cli):
         resp = await cli.post(
             "/words.delete_word",
-            json={
-                "id": 1
-            },
+            json={"id": 1},
         )
         assert resp.status == 401
         data = await resp.json()

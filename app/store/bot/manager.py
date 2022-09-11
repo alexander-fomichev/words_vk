@@ -16,6 +16,7 @@ class BotManager:
     async def handle_updates(self, updates: list[Update]):
         if updates:
             for update in updates:
+                update.object.peer_id
                 if update.object.body.lower() == "старт":
                     players = await self.app.store.vk_api.get_players(
                         peer_id=update.object.peer_id

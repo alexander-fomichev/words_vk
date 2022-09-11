@@ -33,4 +33,6 @@ async def check_empty_table_exists(cli, tablename: str):
 async def clear_table(db_session: AsyncSession, table: str):
     async with db_session.begin() as session:
         await session.execute(text(f"TRUNCATE {table} CASCADE"))
-        await session.execute(text(f"ALTER SEQUENCE {table}_id_seq RESTART WITH 1"))
+        await session.execute(
+            text(f"ALTER SEQUENCE {table}_id_seq RESTART WITH 1")
+        )

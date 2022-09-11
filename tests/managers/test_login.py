@@ -10,17 +10,21 @@ from tests.utils import ok_response
 class TestAdminStore:
     async def test_create_admin(self, cli, store: Store):
         email = "admin2@admin.com"
-        password = 'admin2'
-        'a4316e43-8052-48d2-8941-96343cac2c8e'
+        password = "admin2"
+        "a4316e43-8052-48d2-8941-96343cac2c8e"
         admin = await store.admins.create_admin(email, password)
         assert type(admin) is AdminModel
 
         async with cli.app.database.session() as session:
-            res = await session.execute(select(AdminModel).where(AdminModel.email == email))
+            res = await session.execute(
+                select(AdminModel).where(AdminModel.email == email)
+            )
             user = res.scalar()
 
         assert user.email == email
-        assert user.password == str(sha256(password.encode("utf-8")).hexdigest())
+        assert user.password == str(
+            sha256(password.encode("utf-8")).hexdigest()
+        )
 
 
 class TestAdminLoginView:

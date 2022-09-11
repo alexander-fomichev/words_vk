@@ -1,9 +1,7 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.words.models import (
-
-    WordModel, SettingModel)
+from app.words.models import WordModel, SettingModel
 from tests.utils import clear_table
 
 

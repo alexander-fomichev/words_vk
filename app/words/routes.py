@@ -1,9 +1,17 @@
 import typing
 
 from app.words.views import (
-
-    WordAddView, WordListView, SettingAddView, SettingListView, SettingGetView, SettingPatchView, WordPatchView,
-    WordDeleteView, WordGetView, SettingDeleteView)
+    WordAddView,
+    WordListView,
+    SettingAddView,
+    SettingListView,
+    SettingGetView,
+    SettingPatchView,
+    WordPatchView,
+    WordDeleteView,
+    WordGetView,
+    SettingDeleteView,
+)
 
 if typing.TYPE_CHECKING:
     from app.web.app import Application
