@@ -21,7 +21,9 @@ class BotManager:
                         peer_id=update.object.peer_id
                     )
                     print(players)
-                    active_players = tuple(filter(lambda x: x.online > 0, players))
+                    active_players = tuple(
+                        filter(lambda x: x.online > 0, players)
+                    )
                     if len(active_players) < 2:
                         await self.app.store.vk_api.send_message(
                             Message(

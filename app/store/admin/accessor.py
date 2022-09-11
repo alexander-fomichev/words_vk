@@ -3,7 +3,6 @@ import typing
 from hashlib import sha256
 from typing import Optional
 
-from asyncpg import UniqueViolationError
 from sqlalchemy import select, insert
 from sqlalchemy.exc import IntegrityError
 
@@ -25,20 +24,23 @@ class AdminAccessor(BaseAccessor):
             return
 
     async def create_admin(self, email: str, password: str) -> AdminModel:
-        # pass
-        query = insert(AdminModel).values(
-            email=email, password=str(sha256(password.encode("utf-8")).hexdigest())
+        admin = AdminModel(
+            email=email,
+            password=str(sha256(password.encode("utf-8")).hexdigest()),
         )
         async with self.app.database.session() as session:
-            await session.execute(query)
+            session.add(admin)
             await session.commit()
+        return admin
 
     async def connect(self, app: "Application"):
-        while not app.database.session:
-            await asyncio.sleep(3)
+        # while not app.database.session:
+        #     await asyncio.sleep(3)
         email = app.config.admin.email
         password = app.config.admin.password
         try:
-            await self.create_admin(email, password)
-        except IntegrityError:
-            pass
+            user = await self.create_admin(email, password)
+            return user
+        except IntegrityError as e:
+            if e.orig.pgcode == "23505":
+                pass

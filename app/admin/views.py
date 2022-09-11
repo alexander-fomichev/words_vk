@@ -19,19 +19,21 @@ class AdminLoginView(View):
         email = self.data["email"]
         password = self.data["password"]
         user = await self.request.app.store.admins.get_by_email(email)
-        if not user or user.password != str(
-            sha256(password.encode("utf-8")).hexdigest()
-        ):
-            raise HTTPForbidden
-        else:
+        if user and user.is_password_valid(password):
             user_out = AdminSchema().dump(user)
             session = await new_session(self.request)
             session["admin"] = user_out
             return json_response(data=user_out)
+        else:
+            raise HTTPForbidden
 
 
 class AdminCurrentView(AuthRequiredMixin, View):
-    @docs(tags=["auth"], summary="Current user", description="Get current user info")
+    @docs(
+        tags=["auth"],
+        summary="Current user",
+        description="Get current user info",
+    )
     @response_schema(AdminSchema, 200)
     async def get(self):
         session = await get_session(self.request)

@@ -12,7 +12,7 @@ class TestHandleUpdates:
                 Update(
                     type="message_new",
                     object=UpdateObject(
-                        id=1,
+                        peer_id=1,
                         user_id=1,
                         body="kek",
                     ),
@@ -21,5 +21,5 @@ class TestHandleUpdates:
         )
         assert store.vk_api.send_message.call_count == 1
         message: Message = store.vk_api.send_message.mock_calls[0].args[0]
-        assert message.user_id == 1
+        assert message.peer_id == 1
         assert message.text
