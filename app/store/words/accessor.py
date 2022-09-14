@@ -1,11 +1,14 @@
-from typing import Optional
+from typing import Optional, List
 
 from sqlalchemy import select, delete
+from sqlalchemy.orm import joinedload
 
 from app.base.base_accessor import BaseAccessor
 from app.words.models import (
     WordModel,
     SettingModel,
+    GameModel,
+    PlayerModel,
 )
 
 
@@ -122,4 +125,121 @@ class WordsAccessor(BaseAccessor):
             return
         return setting
 
+    # async def get_game_by_peer_id(self, peer_id: int) -> Optional[GameModel]:
+    #     query = select(GameModel).where(GameModel.peer_id == peer_id)
+    #     async with self.app.database.session() as session:
+    #         answer = await session.execute(query)
+    #         res = answer.scalar()
+    #         if res:
+    #             return res
+    #         return
 
+    async def get_game_by_id(self, id: int) -> Optional[GameModel]:
+        query = select(GameModel).where(GameModel.id == id).options(joinedload(GameModel.setting)).options(joinedload(GameModel.players))
+        async with self.app.database.session() as session:
+            answer = await session.execute(query)
+            res = answer.scalar()
+            if res:
+                return res
+            return
+
+    async def create_game(
+        self, setting_id: int, peer_id: int
+    ) -> GameModel:
+        game = GameModel(
+            status="Init",
+            setting_id=setting_id,
+            players=[],
+            peer_id=peer_id,
+            moves_order=None,
+            current_move=None,
+            event_timestamp=None,
+            pause_timestamp=None
+        )
+        async with self.app.database.session() as session:
+            session.add(game)
+            await session.commit()
+        return game
+
+    async def list_games(self, peer_id: Optional[int] = None) -> list[GameModel]:
+        query = select(GameModel)
+        if peer_id is not None:
+            query = query.where(GameModel.peer_id == peer_id)
+        query = query.options(joinedload(GameModel.players)).options(joinedload(GameModel.setting)).options(joinedload(GameModel.players))
+        async with self.app.database.session() as session:
+            response = await session.execute(query)
+            return list(response.scalars().unique())
+
+    async def delete_game(self, game_id: int) -> int:
+        query = delete(GameModel).where(GameModel.id == game_id)
+        async with self.app.database.session() as session:
+            await session.execute(query)
+            await session.commit()
+        return game_id
+
+    async def patch_game(
+        self, id, players: Optional[List[PlayerModel]] = None, status: Optional[str] = None
+    ) -> GameModel:
+        query = select(GameModel).where(GameModel.id == id).options(joinedload(GameModel.setting)).options(joinedload(GameModel.players))
+        async with self.app.database.session() as session:
+            result = await session.execute(query)
+            game = result.scalar()
+            if game:
+                if players is not None:
+                    game.players = players
+                if status is not None:
+                    game.status = status
+                await session.commit()
+        return game
+
+    async def get_player(self, player_id: int) -> Optional[PlayerModel]:
+        query = select(PlayerModel).where(PlayerModel.id == player_id)
+        async with self.app.database.session() as session:
+            answer = await session.execute(query)
+            res = answer.scalar()
+            if res:
+                return res
+            return
+
+    async def create_player(
+        self, game_id: int, user_id: int, name: str
+    ) -> PlayerModel:
+        player = PlayerModel(
+            status="Active",
+            online=True,
+            name=name,
+            game_id=game_id,
+            user_id=user_id,
+        )
+        async with self.app.database.session() as session:
+            session.add(player)
+            await session.commit()
+        return player
+
+    async def list_player(self, game_id) -> list[PlayerModel]:
+        query = select(PlayerModel).where(PlayerModel.game_id == game_id)
+        async with self.app.database.session() as session:
+            response = await session.execute(query)
+            return list(response.scalars().unique())
+
+    async def delete_player(self, player_id: int) -> int:
+        query = delete(PlayerModel).where(PlayerModel.id == player_id)
+        async with self.app.database.session() as session:
+            await session.execute(query)
+            await session.commit()
+        return player_id
+
+    async def patch_player(
+        self, player_id: int, online: Optional[bool] = None, status: Optional[str] = None
+    ) -> PlayerModel:
+        query = select(PlayerModel).where(PlayerModel.id == player_id)
+        async with self.app.database.session() as session:
+            result = await session.execute(query)
+            player = result.scalar()
+            if player:
+                if online is not None:
+                    player.online = online
+                if status is not None:
+                    player.status = status
+                await session.commit()
+        return player
