@@ -22,6 +22,8 @@ from app.words.schemes import (
     WordIdSchema,
     WordTitleSchema,
     SettingIdSchema,
+    PlayerSchema, PatchPlayerSchema, PlayerListSchema, GameIdSchema, GameSchema, GamePatchSchema, GameListSchema,
+    PeerIdSchema, GameSettingSchema, PlayerIdSchema,
 )
 
 
@@ -194,4 +196,188 @@ class SettingListView(AuthRequiredMixin, View):
         settings = await self.store.words.list_settings()
         return json_response(
             data=SettingListSchema().dump({"settings": settings})
+        )
+
+
+class PlayerGetView(AuthRequiredMixin, View):
+    @docs(
+        tags=["players"],
+        summary="get player",
+        description="return player",
+    )
+    @querystring_schema(PlayerIdSchema)
+    @response_schema(PlayerSchema)
+    async def get(self):
+        player_id = self.request["querystring"]["id"]
+        player = await self.store.words.get_player(player_id=player_id)
+        if player is None:
+            raise HTTPNotFound
+        return json_response(data=PlayerSchema().dump(player))
+
+
+class PlayerAddView(AuthRequiredMixin, View):
+    @docs(tags=["players"], summary="add player", description="Add new player")
+    @request_schema(PlayerSchema)
+    @response_schema(PlayerSchema)
+    async def post(self):
+        game_id = self.data["game_id"]
+        user_id = self.data["user_id"]
+        user_name = self.data["name"]
+        try:
+            player = await self.store.words.create_player(game_id, user_id, user_name)
+        except IntegrityError as e:
+            if e.orig.pgcode == "23505":
+                raise HTTPConflict
+            if e.orig.pgcode == "23503":
+                raise HTTPNotFound
+        player_out = PlayerSchema().dump(player)
+        return json_response(data=player_out)
+
+
+class PlayerPatchView(AuthRequiredMixin, View):
+    @docs(
+        tags=["players"],
+        summary="patch setting",
+        description="partial update player",
+    )
+    @request_schema(PatchPlayerSchema)
+    @response_schema(PlayerSchema)
+    async def post(self):
+        player_id = self.data["id"]
+        status = self.data.get("status", None)
+        online = self.data.get("online", None)
+        player = await self.store.words.patch_player(
+            player_id=player_id, status=status, online=online
+        )
+        if player is None:
+            raise HTTPNotFound
+        player_out = PlayerSchema().dump(player)
+        return json_response(data=player_out)
+
+
+class PlayerDeleteView(AuthRequiredMixin, View):
+    @docs(
+        tags=["players"],
+        summary="delete player",
+        description="Delete existed player",
+    )
+    @request_schema(PlayerIdSchema)
+    @response_schema(PlayerSchema)
+    async def post(self):
+        player_id = self.data["id"]
+        player = await self.store.words.get_player(player_id)
+        if player is None:
+            raise HTTPNotFound
+        await self.store.words.delete_player(player_id)
+        player_out = PlayerSchema().dump(player)
+        return json_response(data=player_out)
+
+
+class PlayerListView(AuthRequiredMixin, View):
+    @docs(
+        tags=["players"],
+        summary="get players",
+        description="return list of players",
+    )
+    @querystring_schema(GameIdSchema)
+    @response_schema(PlayerListSchema)
+    async def get(self):
+        game_id = self.request["querystring"]["id"]
+        game = await self.store.words.get_game_by_id(id=game_id)
+        if not game:
+            raise HTTPNotFound
+        players = await self.store.words.list_player(game_id)
+        return json_response(
+            data=PlayerListSchema().dump({"players": players})
+        )
+
+
+class GameGetView(AuthRequiredMixin, View):
+    @docs(
+        tags=["games"],
+        summary="get game",
+        description="return game",
+    )
+    @querystring_schema(GameIdSchema)
+    @response_schema(GameSettingSchema)
+    async def get(self):
+        game_id = self.request["querystring"]["id"]
+        game = await self.store.words.get_game_by_id(id=game_id)
+        if game is None:
+            raise HTTPNotFound
+        return json_response(data=GameSettingSchema().dump(game))
+
+
+class GameAddView(AuthRequiredMixin, View):
+    @docs(
+        tags=["games"], summary="add game", description="Add new game"
+    )
+    @request_schema(GameSchema)
+    @response_schema(GameSettingSchema)
+    async def post(self):
+        setting_id = self.data["setting_id"]
+        peer_id = self.data["peer_id"]
+        # players = self.data["players"]
+        try:
+            new_game = await self.store.words.create_game(setting_id=setting_id, peer_id=peer_id)
+        except IntegrityError as e:
+            if e.orig.pgcode == "23503":
+                raise HTTPNotFound
+        game = await self.store.words.get_game_by_id(new_game.id)
+        game_out = GameSettingSchema().dump(game)
+        return json_response(data=game_out)
+
+
+class GamePatchView(AuthRequiredMixin, View):
+    @docs(
+        tags=["games"],
+        summary="patch game",
+        description="partial update game",
+    )
+    @request_schema(GamePatchSchema)
+    @response_schema(GameSettingSchema)
+    async def post(self):
+        game_id = self.data["id"]
+        status = self.data.get("status", None)
+        players = self.data.get("players", None)
+        game = await self.store.words.patch_game(
+            id=game_id, players=players, status=status
+        )
+        if game is None:
+            raise HTTPNotFound
+        game_out = GameSettingSchema().dump(game)
+        return json_response(data=game_out)
+
+
+class GameDeleteView(AuthRequiredMixin, View):
+    @docs(
+        tags=["games"],
+        summary="delete game",
+        description="Delete existed game",
+    )
+    @request_schema(GameIdSchema)
+    @response_schema(GameSettingSchema)
+    async def post(self):
+        game_id = self.data["id"]
+        game = await self.store.words.get_game_by_id(game_id)
+        if game is None:
+            raise HTTPNotFound
+        await self.store.words.delete_game(game_id)
+        game_out = GameSettingSchema().dump(game)
+        return json_response(data=game_out)
+
+
+class GameListView(AuthRequiredMixin, View):
+    @docs(
+        tags=["games"],
+        summary="get games",
+        description="return list of games",
+    )
+    @querystring_schema(PeerIdSchema)
+    @response_schema(GameListSchema)
+    async def get(self):
+        peer_id = self.request["querystring"].get("peer_id", None)
+        games = await self.store.words.list_games(peer_id)
+        return json_response(
+            data=GameListSchema().dump({"games": games})
         )

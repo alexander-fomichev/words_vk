@@ -24,9 +24,9 @@ class TestSettingStore:
 
         async with cli.app.database.session() as session:
             res = await session.execute(select(SettingModel))
-            words = res.scalars().all()
+            settings = res.scalars().all()
 
-        assert len(words) == 1
+        assert len(settings) == 1
         async with cli.app.database.session() as session:
             res = await session.execute(
                 select(SettingModel).where(SettingModel.title == setting_title)
@@ -54,7 +54,7 @@ class TestSettingStore:
         setting = await store.words.get_setting_by_title(setting_1.title)
         assert setting == setting_1
 
-    async def test_list_words(
+    async def test_list_settings(
         self,
         cli,
         store: Store,
@@ -240,7 +240,7 @@ class TestIntegration:
 class TestSettingsPatchView:
     async def test_unauthorized(self, cli):
         resp = await cli.post(
-            "/words.patch_word",
+            "/words.patch_setting",
             json={"id": 1, "title": "измененноеслово", "timeout": 120},
         )
         assert resp.status == 401

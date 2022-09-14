@@ -1,5 +1,9 @@
+from dataclasses import asdict
+
 from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+
+from app.words.models import GameModel
 
 
 def ok_response(data: dict):
@@ -36,3 +40,6 @@ async def clear_table(db_session: AsyncSession, table: str):
         await session.execute(
             text(f"ALTER SEQUENCE {table}_id_seq RESTART WITH 1")
         )
+
+
+
