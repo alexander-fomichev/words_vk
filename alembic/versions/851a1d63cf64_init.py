@@ -1,8 +1,8 @@
 """init
 
-Revision ID: 3d1ab0ed593f
+Revision ID: 851a1d63cf64
 Revises: 
-Create Date: 2022-09-14 11:00:31.028106
+Create Date: 2022-09-15 13:25:58.200461
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = '3d1ab0ed593f'
+revision = '851a1d63cf64'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -42,8 +42,8 @@ def upgrade() -> None:
     op.create_table('games',
     sa.Column('moves_order', sa.String(), nullable=True),
     sa.Column('current_move', sa.Integer(), nullable=True),
-    sa.Column('event_timestamp', sa.DateTime(), nullable=True),
-    sa.Column('pause_timestamp', sa.DateTime(), nullable=True),
+    sa.Column('event_timestamp', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('pause_timestamp', sa.DateTime(timezone=True), nullable=True),
     sa.Column('status', sa.String(), nullable=True),
     sa.Column('setting_id', sa.Integer(), nullable=True),
     sa.Column('peer_id', sa.Integer(), nullable=False),
@@ -59,7 +59,8 @@ def upgrade() -> None:
     sa.Column('game_id', sa.Integer(), nullable=True),
     sa.Column('id', sa.Integer(), nullable=False),
     sa.ForeignKeyConstraint(['game_id'], ['games.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('user_id', 'game_id', name='_user_game_uc')
     )
     # ### end Alembic commands ###
 

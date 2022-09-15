@@ -108,16 +108,17 @@ class GameSchema(Schema):
     peer_id = fields.Int(required=True)
     current_move = fields.Int(required=False)
     moves_order = fields.Str(required=False)
-    event_timestamp = fields.Time(required=False)
-    pause_timestamp = fields.Time(required=False)
+    event_timestamp = fields.DateTime(required=False)
+    pause_timestamp = fields.DateTime(required=False)
 
 
 class GameIdSchema(Schema):
     id = fields.Int(required=True)
 
 
-class PeerIdSchema(Schema):
+class QueryGameListSchema(Schema):
     peer_id = fields.Int(required=False)
+    status = fields.Str(required=False)
 
 
 class GamePatchSchema(GameIdSchema):
@@ -125,8 +126,8 @@ class GamePatchSchema(GameIdSchema):
     players = fields.Nested(PlayerSchema, many=True, required=False)
     current_move = fields.Int(required=False)
     moves_order = fields.Str(required=False)
-    event_timestamp = fields.Time(required=False)
-    pause_timestamp = fields.Time(required=False)
+    event_timestamp = fields.DateTime(required=False)
+    pause_timestamp = fields.DateTime(required=False)
 
     @validates_schema
     def validate_update(self, data, **kwargs):
@@ -137,13 +138,15 @@ class GamePatchSchema(GameIdSchema):
         event_timestamp = data.get("event_timestamp", None)
         pause_timestamp = data.get("pause_timestamp", None)
 
-        if players is None\
-                and status is None \
-                and players is None \
-                and current_move is None\
-                and moves_order is None\
-                and event_timestamp is None\
-                and pause_timestamp is None:
+        if (
+            players is None
+            and status is None
+            and players is None
+            and current_move is None
+            and moves_order is None
+            and event_timestamp is None
+            and pause_timestamp is None
+        ):
             raise ValidationError("at least one field must be updated")
 
 

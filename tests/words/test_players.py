@@ -1,11 +1,9 @@
 from dataclasses import asdict
 from typing import List
 
-import pytest
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.future import select
 
-from app.words.models import SettingModel, GameModel, PlayerModel
+from app.words.models import GameModel, PlayerModel
 from app.store import Store
 from tests.utils import check_empty_table_exists
 from tests.utils import ok_response
@@ -143,14 +141,14 @@ class TestPlayerAddView:
         data = await resp.json()
         assert data["status"] == "not_implemented"
 
-    # async def test_conflict(self, authed_cli, clear_games, player_1: PlayerModel):
-    #     resp = await authed_cli.post(
-    #         "/words.add_player",
-    #         json={"game_id": player_1.game_id, "user_id": player_1.user_id, "name": "test"},
-    #     )
-    #     assert resp.status == 409
-    #     data = await resp.json()
-    #     assert data["status"] == "conflict"
+    async def test_conflict(self, authed_cli, clear_games, player_1: PlayerModel):
+        resp = await authed_cli.post(
+            "/words.add_player",
+            json={"game_id": player_1.game_id, "user_id": player_1.user_id, "name": "test"},
+        )
+        assert resp.status == 409
+        data = await resp.json()
+        assert data["status"] == "conflict"
 
     async def test_not_found(self, authed_cli, clear_games):
         resp = await authed_cli.post(

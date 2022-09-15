@@ -22,15 +22,21 @@ from app.words.schemes import (
     WordIdSchema,
     WordTitleSchema,
     SettingIdSchema,
-    PlayerSchema, PatchPlayerSchema, PlayerListSchema, GameIdSchema, GameSchema, GamePatchSchema, GameListSchema,
-    PeerIdSchema, GameSettingSchema, PlayerIdSchema,
+    PlayerSchema,
+    PatchPlayerSchema,
+    PlayerListSchema,
+    GameIdSchema,
+    GameSchema,
+    GamePatchSchema,
+    GameListSchema,
+    GameSettingSchema,
+    PlayerIdSchema,
+    QueryGameListSchema,
 )
 
 
 class WordGetView(AuthRequiredMixin, View):
-    @docs(
-        tags=["words"], summary="get word", description="return word by title"
-    )
+    @docs(tags=["words"], summary="get word", description="return word by title")
     @querystring_schema(WordTitleSchema)
     @response_schema(WordSchema)
     async def get(self):
@@ -62,9 +68,7 @@ class WordAddView(AuthRequiredMixin, View):
 
 
 class WordPatchView(AuthRequiredMixin, View):
-    @docs(
-        tags=["words"], summary="patch word", description="Patch existed word"
-    )
+    @docs(tags=["words"], summary="patch word", description="Patch existed word")
     @request_schema(PatchWordSchema)
     @response_schema(WordSchema)
     async def post(self):
@@ -73,9 +77,7 @@ class WordPatchView(AuthRequiredMixin, View):
         if title:
             title = title.lower()
         is_correct = self.data.get("is_correct", None)
-        word = await self.store.words.patch_word(
-            id, title=title, is_correct=is_correct
-        )
+        word = await self.store.words.patch_word(id, title=title, is_correct=is_correct)
         if word is None:
             raise HTTPNotFound
         word_out = WordSchema().dump(word)
@@ -83,9 +85,7 @@ class WordPatchView(AuthRequiredMixin, View):
 
 
 class WordDeleteView(AuthRequiredMixin, View):
-    @docs(
-        tags=["words"], summary="delete word", description="Delete existed word"
-    )
+    @docs(tags=["words"], summary="delete word", description="Delete existed word")
     @request_schema(WordIdSchema)
     @response_schema(WordSchema)
     async def post(self):
@@ -99,9 +99,7 @@ class WordDeleteView(AuthRequiredMixin, View):
 
 
 class WordListView(AuthRequiredMixin, View):
-    @docs(
-        tags=["words"], summary="get words", description="return list of words"
-    )
+    @docs(tags=["words"], summary="get words", description="return list of words")
     @querystring_schema(WordIsCorrectSchema)
     @response_schema(WordListSchema)
     async def get(self):
@@ -127,9 +125,7 @@ class SettingGetView(AuthRequiredMixin, View):
 
 
 class SettingAddView(AuthRequiredMixin, View):
-    @docs(
-        tags=["settings"], summary="add setting", description="Add new setting"
-    )
+    @docs(tags=["settings"], summary="add setting", description="Add new setting")
     @request_schema(SettingSchema)
     @response_schema(SettingSchema)
     async def post(self):
@@ -158,9 +154,7 @@ class SettingPatchView(AuthRequiredMixin, View):
         if title:
             title = title.lower()
         timeout = self.data.get("timeout", None)
-        setting = await self.store.words.patch_setting(
-            id, title=title, timeout=timeout
-        )
+        setting = await self.store.words.patch_setting(id, title=title, timeout=timeout)
         if setting is None:
             raise HTTPNotFound
         setting_out = SettingSchema().dump(setting)
@@ -194,9 +188,7 @@ class SettingListView(AuthRequiredMixin, View):
     @response_schema(SettingListSchema)
     async def get(self):
         settings = await self.store.words.list_settings()
-        return json_response(
-            data=SettingListSchema().dump({"settings": settings})
-        )
+        return json_response(data=SettingListSchema().dump({"settings": settings}))
 
 
 class PlayerGetView(AuthRequiredMixin, View):
@@ -246,9 +238,7 @@ class PlayerPatchView(AuthRequiredMixin, View):
         player_id = self.data["id"]
         status = self.data.get("status", None)
         online = self.data.get("online", None)
-        player = await self.store.words.patch_player(
-            player_id=player_id, status=status, online=online
-        )
+        player = await self.store.words.patch_player(player_id=player_id, status=status, online=online)
         if player is None:
             raise HTTPNotFound
         player_out = PlayerSchema().dump(player)
@@ -287,9 +277,7 @@ class PlayerListView(AuthRequiredMixin, View):
         if not game:
             raise HTTPNotFound
         players = await self.store.words.list_player(game_id)
-        return json_response(
-            data=PlayerListSchema().dump({"players": players})
-        )
+        return json_response(data=PlayerListSchema().dump({"players": players}))
 
 
 class GameGetView(AuthRequiredMixin, View):
@@ -309,9 +297,7 @@ class GameGetView(AuthRequiredMixin, View):
 
 
 class GameAddView(AuthRequiredMixin, View):
-    @docs(
-        tags=["games"], summary="add game", description="Add new game"
-    )
+    @docs(tags=["games"], summary="add game", description="Add new game")
     @request_schema(GameSchema)
     @response_schema(GameSettingSchema)
     async def post(self):
@@ -340,9 +326,7 @@ class GamePatchView(AuthRequiredMixin, View):
         game_id = self.data["id"]
         status = self.data.get("status", None)
         players = self.data.get("players", None)
-        game = await self.store.words.patch_game(
-            id=game_id, players=players, status=status
-        )
+        game = await self.store.words.patch_game(id=game_id, players=players, status=status)
         if game is None:
             raise HTTPNotFound
         game_out = GameSettingSchema().dump(game)
@@ -373,11 +357,9 @@ class GameListView(AuthRequiredMixin, View):
         summary="get games",
         description="return list of games",
     )
-    @querystring_schema(PeerIdSchema)
+    @querystring_schema(QueryGameListSchema)
     @response_schema(GameListSchema)
     async def get(self):
         peer_id = self.request["querystring"].get("peer_id", None)
         games = await self.store.words.list_games(peer_id)
-        return json_response(
-            data=GameListSchema().dump({"games": games})
-        )
+        return json_response(data=GameListSchema().dump({"games": games}))

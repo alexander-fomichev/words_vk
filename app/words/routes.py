@@ -10,8 +10,17 @@ from app.words.views import (
     WordPatchView,
     WordDeleteView,
     WordGetView,
-    SettingDeleteView, PlayerAddView, PlayerGetView, PlayerListView, PlayerDeleteView, PlayerPatchView, GameAddView,
-    GameGetView, GameListView, GamePatchView, GameDeleteView,
+    SettingDeleteView,
+    PlayerAddView,
+    PlayerGetView,
+    PlayerListView,
+    PlayerDeleteView,
+    PlayerPatchView,
+    GameAddView,
+    GameGetView,
+    GameListView,
+    GamePatchView,
+    GameDeleteView,
 )
 
 if typing.TYPE_CHECKING:
