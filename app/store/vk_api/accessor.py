@@ -81,22 +81,24 @@ class VkApiAccessor(BaseAccessor):
         ) as resp:
             data = await resp.json()
             self.logger.info(data)
-            self.ts = data["ts"]
-            raw_updates = data.get("updates", [])
+            ts = data.get("ts", None)
             updates = []
-            for update in raw_updates:
-                updates.append(
-                    Update(
-                        type=update["type"],
-                        object=UpdateObject(
-                            peer_id=update["object"]["message"]["peer_id"],
-                            user_id=update["object"]["message"]["from_id"],
-                            body=update["object"]["message"]["text"],
-                        ),
+            if ts is not None:
+                self.ts = ts
+                raw_updates = data.get("updates", [])
+                for update in raw_updates:
+                    updates.append(
+                        Update(
+                            type=update["type"],
+                            object=UpdateObject(
+                                peer_id=update["object"]["message"]["peer_id"],
+                                user_id=update["object"]["message"]["from_id"],
+                                body=update["object"]["message"]["text"],
+                            ),
+                        )
                     )
-                )
         print(updates)
-        await self.app.store.bots_manager.handle_updates(updates)
+        return updates
 
     async def send_message(self, message: Message) -> None:
         async with self.session.get(

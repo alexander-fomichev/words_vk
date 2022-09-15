@@ -52,9 +52,7 @@ async def error_handling_middleware(request: "Request", handler):
         )
     except Exception as e:
         request.app.logger.error("Exception", exc_info=e)
-        return error_json_response(
-            http_status=500, status="internal server error", message=str(e)
-        )
+        return error_json_response(http_status=500, status="internal server error", message=str(e))
 
 
 def setup_middlewares(app: "Application"):
