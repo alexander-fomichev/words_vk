@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  bot_app:
+    container_name: bot_app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: bash -c "alembic upgrade head && python main.py"
+    networks:
+      - vk_bot_network
+    ports:
+      - "8000:8000"
+    depends_on:
+      - kts_postgres
+
+  kts_postgres:
+    container_name: kts_postgres
+    image: postgres:latest
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=kts
+      - POSTGRES_USER=kts_user
+      - POSTGRES_PASSWORD=kts_pass
+    expose:
+      - 5432
+    ports:
+      - "5432:5432"
+    networks:
+      - vk_bot_network
+
+
+networks:
+  vk_bot_network:
+
+volumes:
+  postgres_data:

@@ -73,6 +73,7 @@ class SettingTitleSchema(Schema):
 
 class PlayerSchema(Schema):
     id = fields.Int(required=False)
+    score = fields.Int(required=False)
     status = fields.Str(required=False)
     online = fields.Bool(required=False)
     name = fields.Str(required=False)
@@ -109,7 +110,7 @@ class GameSchema(Schema):
     current_move = fields.Int(required=False)
     moves_order = fields.Str(required=False)
     event_timestamp = fields.DateTime(required=False)
-    pause_timestamp = fields.DateTime(required=False)
+    elapsed_time = fields.Int(required=False)
 
 
 class GameIdSchema(Schema):
@@ -127,7 +128,7 @@ class GamePatchSchema(GameIdSchema):
     current_move = fields.Int(required=False)
     moves_order = fields.Str(required=False)
     event_timestamp = fields.DateTime(required=False)
-    pause_timestamp = fields.DateTime(required=False)
+    elapsed_time = fields.Int(required=False)
 
     @validates_schema
     def validate_update(self, data, **kwargs):
@@ -136,7 +137,7 @@ class GamePatchSchema(GameIdSchema):
         current_move = data.get("current_move", None)
         moves_order = data.get("moves_order", None)
         event_timestamp = data.get("event_timestamp", None)
-        pause_timestamp = data.get("pause_timestamp", None)
+        elapsed_time = data.get("elapsed_time", None)
 
         if (
             players is None
@@ -145,7 +146,7 @@ class GamePatchSchema(GameIdSchema):
             and current_move is None
             and moves_order is None
             and event_timestamp is None
-            and pause_timestamp is None
+            and elapsed_time is None
         ):
             raise ValidationError("at least one field must be updated")
 
