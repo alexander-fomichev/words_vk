@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional, List
 
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, UniqueConstraint, CheckConstraint
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.store.database.sqlalchemy_base import mapper_registry, db
@@ -19,6 +19,18 @@ class WordModel:
     id: Optional[int] = field(default=None, metadata={"sa": Column(Integer, primary_key=True)})
 
     # __table_args__ = (CheckConstraint("regexp_like(title, '^[а-яА-ЯёЁ]+$')", name='title_cyr'),)
+
+
+@mapper_registry.mapped
+@dataclass
+class CityModel:
+    __tablename__ = "cities"
+    __sa_dataclass_metadata_key__ = "sa"
+
+    id_region: Optional[int] = field(metadata={"sa": Column(Integer)})
+    id_country: Optional[int] = field(metadata={"sa": Column(Integer)})
+    title: str = field(metadata={"sa": Column(String, nullable=False)})
+    id: Optional[int] = field(default=None, metadata={"sa": Column(Integer, primary_key=True)})
 
 
 @mapper_registry.mapped
@@ -48,6 +60,7 @@ class PlayerModel:
     name: str = field(metadata={"sa": Column(String, nullable=False)})
     status: str = field(metadata={"sa": Column(String, nullable=False)})
     online: bool = field(metadata={"sa": Column(Boolean, nullable=False)})
+    score: int = field(metadata={"sa": Column(Integer, default=0)})
     user_id: int = field(
         metadata={
             "sa": Column(
@@ -75,7 +88,14 @@ class GameModel:
             )
         }
     )
-    current_move: Optional[int] = field(metadata={"sa": Column(Integer, default=0)})
+    current_move: Optional[int] = field(
+        metadata={
+            "sa": Column(
+                Integer,
+                nullable=True,
+            )
+        }
+    )
     event_timestamp: Optional[datetime] = field(
         metadata={
             "sa": Column(
@@ -84,15 +104,16 @@ class GameModel:
             )
         }
     )
-    pause_timestamp: Optional[datetime] = field(
+    elapsed_time: Optional[int] = field(metadata={"sa": Column(Integer, default=0, nullable=False)})
+    status: str = field(metadata={"sa": Column(String, default="init")})
+    last_word: Optional[str] = field(
         metadata={
             "sa": Column(
-                DateTime(timezone=True),
+                String,
                 nullable=True,
             )
         }
     )
-    status: str = field(metadata={"sa": Column(String, default="Init")})
     setting_id: int = field(metadata={"sa": Column(ForeignKey("settings.id", ondelete="CASCADE"))})
     setting: Optional[SettingModel] = field(metadata={"sa": relationship("SettingModel")}, init=False)
 
@@ -101,6 +122,14 @@ class GameModel:
             "sa": Column(
                 Integer,
                 nullable=False,
+            )
+        }
+    )
+    vote_word: Optional[str] = field(
+        metadata={
+            "sa": Column(
+                String,
+                nullable=True,
             )
         }
     )
@@ -114,4 +143,31 @@ class GameModel:
             )
         },
     )
+
     id: Optional[int] = field(default=None, metadata={"sa": Column(Integer, primary_key=True)})
+
+
+@mapper_registry.mapped
+@dataclass
+class UsedWordModel:
+    __tablename__ = "usedwords"
+    __sa_dataclass_metadata_key__ = "sa"
+
+    title: str = field(metadata={"sa": Column(String, nullable=False)})
+    game_id: int = field(metadata={"sa": Column(ForeignKey("games.id", ondelete="CASCADE"))})
+    id: Optional[int] = field(default=None, metadata={"sa": Column(Integer, primary_key=True)})
+
+
+@mapper_registry.mapped
+@dataclass
+class VoteModel:
+    __tablename__ = "votes"
+    __sa_dataclass_metadata_key__ = "sa"
+
+    title: str = field(metadata={"sa": Column(String, nullable=False)})
+    player_id: int = field(metadata={"sa": Column(ForeignKey("players.id", ondelete="CASCADE"))})
+    game_id: int = field(metadata={"sa": Column(ForeignKey("games.id", ondelete="CASCADE"))})
+    is_correct: bool = field(default=True, metadata={"sa": Column(Boolean, nullable=False)})
+    id: Optional[int] = field(default=None, metadata={"sa": Column(Integer, primary_key=True)})
+
+    __table_args__ = (UniqueConstraint("player_id", "title", name="_vote_word_uc"),)

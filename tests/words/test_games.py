@@ -33,7 +33,7 @@ class TestGameStore:
             new_game = res.scalar()
         assert new_game.peer_id == peer_id
         assert new_game.setting_id == setting_1.id
-        assert new_game.status == "Init"
+        assert new_game.status == "init"
 
     async def test_get_game_by_id(
             self, store: Store, game_1: GameModel
@@ -81,7 +81,7 @@ class TestGameStore:
     async def test_patch_game_players(
             self, cli, store: Store, game_1: GameModel,
     ):
-        player = PlayerModel(status="Active", online=True, user_id=1, game_id=game_1.id, name="тест1")
+        player = PlayerModel(status="Active", online=True, user_id=1, game_id=game_1.id, name="тест1", score=0)
         game_1_updated = await store.words.patch_game(
             game_1.id, players=[player, ]
         )
@@ -136,11 +136,11 @@ class TestGameAddView:
                 "players": [],
                 "setting": asdict(setting_1),
                 "peer_id": 45,
-                "status": "Init",
+                "status": "init",
                 "moves_order": None,
                 "event_timestamp": None,
                 "pause_timestamp": None,
-                "current_move": 0,
+                "current_move": None,
             },
         )
         game = await store.words.get_game_by_id(data["data"]["id"])
@@ -150,7 +150,7 @@ class TestGameAddView:
         assert game.players == []
         assert game.setting_id == setting_1.id
         assert game.peer_id == 45
-        assert game.status == "Init"
+        assert game.status == "init"
 
         games = await store.words.list_games()
         assert len(games) == len(games_before) + 1
@@ -254,12 +254,12 @@ class TestIntegration:
         game = asdict(
             GameModel(
                 id=game_id,
-                status="Init",
+                status="init",
                 setting_id=setting_1.id,
                 players=[],
                 peer_id=45,
                 moves_order=None,
-                current_move=0,
+                current_move=None,
                 event_timestamp=None,
                 pause_timestamp=None
             )
@@ -309,7 +309,7 @@ class TestGamePatchView:
                 "players": [],
                 "peer_id": game_1.peer_id,
                 "moves_order": None,
-                "current_move": 0,
+                "current_move": None,
                 "event_timestamp": None,
                 "pause_timestamp": None
             }

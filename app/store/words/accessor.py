@@ -1,6 +1,7 @@
+from datetime import datetime
 from typing import Optional, List
 
-from sqlalchemy import select, delete, String
+from sqlalchemy import select, delete, String, and_
 from sqlalchemy.orm import joinedload
 
 from app.base.base_accessor import BaseAccessor
@@ -9,6 +10,7 @@ from app.words.models import (
     SettingModel,
     GameModel,
     PlayerModel,
+    UsedWordModel, VoteModel,
 )
 
 
@@ -129,9 +131,9 @@ class WordsAccessor(BaseAccessor):
     async def get_game_by_id(self, id: int) -> Optional[GameModel]:
         query = (
             select(GameModel)
-            .where(GameModel.id == id)
-            .options(joinedload(GameModel.setting))
-            .options(joinedload(GameModel.players))
+                .where(GameModel.id == id)
+                .options(joinedload(GameModel.setting))
+                .options(joinedload(GameModel.players))
         )
         async with self.app.database.session() as session:
             answer = await session.execute(query)
@@ -149,21 +151,25 @@ class WordsAccessor(BaseAccessor):
             moves_order=None,
             current_move=None,
             event_timestamp=None,
-            pause_timestamp=None,
+            elapsed_time=None,
+            last_word=None,
+            vote_word=None
         )
         async with self.app.database.session() as session:
             session.add(game)
             await session.commit()
         return game
 
-    async def list_games(self, peer_id: Optional[int] = None) -> list[GameModel]:
+    async def list_games(self, peer_id: Optional[int] = None, status: Optional[str] = None) -> list[GameModel]:
         query = select(GameModel)
-        if peer_id is not None:
+        if peer_id is not None and status is not None:
+            query = query.where(and_(GameModel.peer_id == peer_id, GameModel.status == status))
+        elif peer_id is not None:
             query = query.where(GameModel.peer_id == peer_id)
         query = (
             query.options(joinedload(GameModel.players))
-            .options(joinedload(GameModel.setting))
-            .options(joinedload(GameModel.players))
+                .options(joinedload(GameModel.setting))
+                .options(joinedload(GameModel.players)).order_by(GameModel.event_timestamp)
         )
         async with self.app.database.session() as session:
             response = await session.execute(query)
@@ -172,33 +178,39 @@ class WordsAccessor(BaseAccessor):
     async def list_active_games(self, peer_id: Optional[int] = None) -> list[GameModel]:
         query = select(GameModel)
         if peer_id is not None:
-            query = query.where(
-                GameModel.peer_id == peer_id and GameModel.status.astext.cast(String).not_like("finished")
+            query = query.where(and_
+                (
+                GameModel.peer_id == peer_id, GameModel.status.astext.cast(String).not_like("finished")
+            )
             )
         else:
             query = query.where(GameModel.status.astext.cast(String).not_like("finished"))
         query = (
             query.options(joinedload(GameModel.players))
-            .options(joinedload(GameModel.setting))
-            .options(joinedload(GameModel.players))
+                .options(joinedload(GameModel.setting))
+                .options(joinedload(GameModel.players))
         )
         async with self.app.database.session() as session:
             response = await session.execute(query)
             return list(response.scalars().unique())
 
-    async def clear_game(self, game_id: int) -> int:
-        query_delete = delete(PlayerModel).where(PlayerModel.game_id == game_id)
+    async def clear_game(self, game_id: int) -> GameModel:
+        query_delete_players = delete(PlayerModel).where(PlayerModel.game_id == game_id)
+        query_delete_used_words = delete(UsedWordModel).where(UsedWordModel.game_id == game_id)
         query = select(GameModel).where(GameModel.id == game_id).options(joinedload(GameModel.setting))
         async with self.app.database.session() as session:
-            await session.execute(query_delete)
+            await session.execute(query_delete_players)
+            await session.execute(query_delete_used_words)
             result = await session.execute(query)
-            game = result.scalar()
+            game: GameModel = result.scalar()
             if game:
                 game.status = "init"
                 game.moves_order = None
                 game.event_timestamp = None
                 game.current_move = None
-                game.pause_timestamp = None
+                game.elapsed_time = 0
+                game.last_word = None
+                game.vote_word = None
             await session.commit()
         return game
 
@@ -210,37 +222,40 @@ class WordsAccessor(BaseAccessor):
         return game_id
 
     async def patch_game(
-        self,
-        id,
-        players: Optional[List[PlayerModel]] = None,
-        status: Optional[str] = None,
-        moves_order: Optional[str] = None,
-        current_move: Optional[int] = None,
-        event_timestamp=None,
-        pause_timestamp=None,
+            self,
+            id,
+            last_word: Optional[str] = None,
+            status: Optional[str] = None,
+            moves_order: Optional[str] = None,
+            current_move: Optional[int] = None,
+            event_timestamp: Optional[datetime] = None,
+            elapsed_time: Optional[int] = None,
+            vote_word: Optional[str] = None,
     ) -> GameModel:
         query = (
             select(GameModel)
-            .where(GameModel.id == id)
-            .options(joinedload(GameModel.setting))
-            .options(joinedload(GameModel.players))
+                .where(GameModel.id == id)
+                .options(joinedload(GameModel.setting))
+                .options(joinedload(GameModel.players))
         )
         async with self.app.database.session() as session:
             result = await session.execute(query)
             game = result.scalar()
             if game:
-                if players is not None:
-                    game.players = players
                 if status is not None:
                     game.status = status
+                if last_word is not None:
+                    game.last_word = last_word
                 if moves_order is not None:
                     game.moves_order = moves_order
                 if event_timestamp is not None:
                     game.event_timestamp = event_timestamp
                 if current_move is not None:
                     game.current_move = current_move
-                if pause_timestamp is not None:
-                    game.pause_timestamp = pause_timestamp
+                if elapsed_time is not None:
+                    game.pause_timestamp = elapsed_time
+                if vote_word is not None:
+                    game.vote_word = vote_word
                 await session.commit()
         return game
 
@@ -254,20 +269,16 @@ class WordsAccessor(BaseAccessor):
             return
 
     async def create_player(self, game_id: int, user_id: int, name: str) -> PlayerModel:
-        player = PlayerModel(
-            status="Active",
-            online=True,
-            name=name,
-            game_id=game_id,
-            user_id=user_id,
-        )
+        player = PlayerModel(status="Active", online=True, name=name, game_id=game_id, user_id=user_id, score=0)
         async with self.app.database.session() as session:
             session.add(player)
             await session.commit()
         return player
 
-    async def list_player(self, game_id) -> list[PlayerModel]:
-        query = select(PlayerModel).where(PlayerModel.game_id == game_id)
+    async def list_player(self, game_id: int) -> list[PlayerModel]:
+        query = select(PlayerModel).where(PlayerModel.game_id == game_id). \
+            order_by(PlayerModel.status.desc(), PlayerModel.score.desc())
+
         async with self.app.database.session() as session:
             response = await session.execute(query)
             return list(response.scalars().unique())
@@ -280,7 +291,11 @@ class WordsAccessor(BaseAccessor):
         return player_id
 
     async def patch_player(
-        self, player_id: int, online: Optional[bool] = None, status: Optional[str] = None
+            self,
+            player_id: int,
+            online: Optional[bool] = None,
+            status: Optional[str] = None,
+            score: Optional[int] = None,
     ) -> PlayerModel:
         query = select(PlayerModel).where(PlayerModel.id == player_id)
         async with self.app.database.session() as session:
@@ -291,5 +306,75 @@ class WordsAccessor(BaseAccessor):
                     player.online = online
                 if status is not None:
                     player.status = status
+                if score is not None:
+                    player.score = score
                 await session.commit()
         return player
+
+    async def player_scored(self, player_id: int) -> PlayerModel:
+        query = select(PlayerModel).where(PlayerModel.id == player_id)
+        async with self.app.database.session() as session:
+            result = await session.execute(query)
+            player = result.scalar()
+            if player:
+                player.score += 1
+                await session.commit()
+        return player
+
+    async def create_used_word(self, title: str, game_id: int) -> UsedWordModel:
+        new_used_word = UsedWordModel(title=title, game_id=game_id)
+        async with self.app.database.session() as session:
+            session.add(new_used_word)
+            await session.commit()
+        return new_used_word
+
+    async def delete_used_word(self, used_word_id: int) -> int:
+        query = delete(UsedWordModel).where(UsedWordModel.id == used_word_id)
+        async with self.app.database.session() as session:
+            await session.execute(query)
+            await session.commit()
+        return used_word_id
+
+    async def list_used_words(self, game_id) -> list[UsedWordModel]:
+        query = select(UsedWordModel).where(UsedWordModel.game_id == game_id)
+        async with self.app.database.session() as session:
+            response = await session.execute(query)
+            return list(response.scalars().unique())
+
+    async def get_used_word_by_title(self, title: str, game_id: int) -> Optional[UsedWordModel]:
+        query = select(UsedWordModel).where(and_(UsedWordModel.title == title, UsedWordModel.game_id == game_id))
+        async with self.app.database.session() as session:
+            response = await session.execute(query)
+            setting = response.scalar()
+        if setting is None:
+            return
+        return setting
+
+    async def get_used_word_by_id(self, used_word_id: int) -> Optional[UsedWordModel]:
+        query = select(UsedWordModel).where(UsedWordModel.id == used_word_id)
+        async with self.app.database.session() as session:
+            response = await session.execute(query)
+            setting = response.scalar()
+        if setting is None:
+            return
+        return setting
+
+    async def create_vote(self, game_id: int, player_id: int, title: str, is_correct: bool) -> VoteModel:
+        new_vote = VoteModel(game_id=game_id, player_id=player_id, title=title, is_correct=is_correct)
+        async with self.app.database.session() as session:
+            session.add(new_vote)
+            await session.commit()
+        return new_vote
+
+    async def delete_vote(self, vote_id: int) -> int:
+        query = delete(VoteModel).where(VoteModel.id == vote_id)
+        async with self.app.database.session() as session:
+            await session.execute(query)
+            await session.commit()
+        return vote_id
+
+    async def list_votes(self, game_id: int, title: str) -> list[VoteModel]:
+        query = select(VoteModel).where(and_(VoteModel.game_id == game_id, VoteModel.title == title))
+        async with self.app.database.session() as session:
+            response = await session.execute(query)
+            return list(response.scalars().unique())
