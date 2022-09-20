@@ -325,8 +325,22 @@ class GamePatchView(AuthRequiredMixin, View):
     async def post(self):
         game_id = self.data["id"]
         status = self.data.get("status", None)
-        players = self.data.get("players", None)
-        game = await self.store.words.patch_game(id=game_id, players=players, status=status)
+        current_move = self.data.get("current_move", None)
+        moves_order = self.data.get("moves_order", None)
+        event_timestamp = self.data.get("event_timestamp", None)
+        elapsed_time = self.data.get("elapsed_time", None)
+        last_word = self.data.get("last_word", None)
+        vote_word = self.data.get("vote_word", None)
+
+        game = await self.store.words.patch_game(id=game_id,
+                                                 status=status,
+                                                 current_move=current_move,
+                                                 moves_order=moves_order,
+                                                 event_timestamp=event_timestamp,
+                                                 elapsed_time=elapsed_time,
+                                                 last_word=last_word,
+                                                 vote_word=vote_word
+                                                 )
         if game is None:
             raise HTTPNotFound
         game_out = GameSettingSchema().dump(game)

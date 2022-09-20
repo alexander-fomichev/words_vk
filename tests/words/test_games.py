@@ -78,16 +78,6 @@ class TestGameStore:
         assert game_1_updated.id == game_1.id
         assert game_1_updated.players == game_1.players
 
-    async def test_patch_game_players(
-            self, cli, store: Store, game_1: GameModel,
-    ):
-        player = PlayerModel(status="Active", online=True, user_id=1, game_id=game_1.id, name="тест1", score=0)
-        game_1_updated = await store.words.patch_game(
-            game_1.id, players=[player, ]
-        )
-        assert game_1_updated.status == game_1.status
-        assert game_1_updated.players == [player, ]
-        assert game_1_updated.id == game_1.id
 
     async def test_check_cascade_delete(
             self, cli, player_1: PlayerModel
@@ -139,8 +129,10 @@ class TestGameAddView:
                 "status": "init",
                 "moves_order": None,
                 "event_timestamp": None,
-                "pause_timestamp": None,
+                "elapsed_time": 0,
                 "current_move": None,
+                "last_word": None,
+                "vote_word": None,
             },
         )
         game = await store.words.get_game_by_id(data["data"]["id"])
@@ -261,7 +253,9 @@ class TestIntegration:
                 moves_order=None,
                 current_move=None,
                 event_timestamp=None,
-                pause_timestamp=None
+                elapsed_time=0,
+                last_word=None,
+                vote_word=None
             )
         )
         game.pop("setting_id")
@@ -311,7 +305,9 @@ class TestGamePatchView:
                 "moves_order": None,
                 "current_move": None,
                 "event_timestamp": None,
-                "pause_timestamp": None
+                "elapsed_time": 0,
+                "last_word": None,
+                "vote_word": None,
             }
         )
 

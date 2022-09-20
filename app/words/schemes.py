@@ -111,6 +111,8 @@ class GameSchema(Schema):
     moves_order = fields.Str(required=False)
     event_timestamp = fields.DateTime(required=False)
     elapsed_time = fields.Int(required=False)
+    last_word = fields.Str(required=False)
+    vote_word = fields.Str(required=False)
 
 
 class GameIdSchema(Schema):
@@ -124,29 +126,31 @@ class QueryGameListSchema(Schema):
 
 class GamePatchSchema(GameIdSchema):
     status = fields.Str(required=False)
-    players = fields.Nested(PlayerSchema, many=True, required=False)
     current_move = fields.Int(required=False)
     moves_order = fields.Str(required=False)
     event_timestamp = fields.DateTime(required=False)
     elapsed_time = fields.Int(required=False)
+    last_word = fields.Str(required=False)
+    vote_word = fields.Str(required=False)
 
     @validates_schema
     def validate_update(self, data, **kwargs):
         status = data.get("status", None)
-        players = data.get("players", None)
         current_move = data.get("current_move", None)
         moves_order = data.get("moves_order", None)
         event_timestamp = data.get("event_timestamp", None)
         elapsed_time = data.get("elapsed_time", None)
+        last_word = data.get("last_word", None)
+        vote_word = data.get("vote_word", None)
 
         if (
-            players is None
-            and status is None
-            and players is None
+            status is None
             and current_move is None
             and moves_order is None
             and event_timestamp is None
             and elapsed_time is None
+            and last_word is None
+            and vote_word is None
         ):
             raise ValidationError("at least one field must be updated")
 

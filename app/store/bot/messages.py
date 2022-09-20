@@ -6,20 +6,20 @@ if typing.TYPE_CHECKING:
     from app.store.vk_api.accessor import VkApiAccessor
 
 
-async def start_message(api: "VkApiAccessor", peer_id):
+async def start_message(api: "VkApiAccessor", peer_id: int,):
     await api.send_message(
         Message(
             peer_id=peer_id,
-            text=f"Для начала игры напишите старт",
+            text=f"Для начала игры напишите слова или города",
         )
     )
 
 
-async def registration_message(api: "VkApiAccessor", peer_id: int, timeout: int):
+async def registration_message(api: "VkApiAccessor", peer_id: int, timeout: int, setting: str):
     await api.send_message(
         Message(
             peer_id=peer_id,
-            text=f'Регистрация игроков. Если хотите участвовать, напишите "я". Время на регистрацию {timeout} секунд',
+            text=f'Регистрация игроков в игру {setting}. Если хотите участвовать, напишите "я". Время на регистрацию {timeout} секунд',
         )
     )
 
@@ -51,7 +51,7 @@ async def registration_error_message(api: "VkApiAccessor", peer_id: int, name: s
     )
 
 
-async def registration_failed_message(api: "VkApiAccessor", peer_id):
+async def registration_failed_message(api: "VkApiAccessor", peer_id: int):
     await api.send_message(
         Message(
             peer_id=peer_id,
@@ -105,6 +105,15 @@ async def player_word_in_black_list(api: "VkApiAccessor", peer_id: int, user: st
     )
 
 
+async def city_doesnt_exist(api: "VkApiAccessor", peer_id: int, user: str, word: str):
+    await api.send_message(
+        Message(
+            peer_id=peer_id,
+            text=f"Игрок {user} - города {word} не существует. Вы покидаете игру",
+        )
+    )
+
+
 async def player_word_wrong(api: "VkApiAccessor", peer_id: int, user: str, word: str, last_word):
     await api.send_message(
         Message(
@@ -130,7 +139,7 @@ async def game_finished_message(api: "VkApiAccessor", peer_id: int, name: typing
 
 async def status_message(api: "VkApiAccessor", peer_id: int, status: str, data: typing.Optional[list] = None):
     if status == "init":
-        msg = f"Игра еще не началась. Для начала регистрации напишите 'старт'"
+        msg = f"Игра еще не началась. Для начала регистрации напишите слова или города"
     elif status == "registration":
         msg = f"Идет регистрация. Зарегистрированы следующие игроки\n"
         msg += '\n'.join([f"{player[0]}. {player[1]}" for player in data])

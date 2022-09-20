@@ -21,9 +21,10 @@ from app.store.bot.messages import (
     player_word_in_black_list,
     registration_success_message,
     registration_failed_message, vote_message, vote_result_message, vote_ack_message, vote_conflict_message,
+    registration_message, city_doesnt_exist,
 )
 from app.store.vk_api.dataclasses import Player
-from app.words.models import GameModel
+from app.words.models import GameModel, SettingModel
 
 if typing.TYPE_CHECKING:
     from app.store.bot.manager import BotManager
@@ -67,12 +68,23 @@ class Game:
 
     async def re_init(self):
         """восстановления состояния игры после перезагрузки"""
+        self.setting_title = self.game_db.setting.title
         if self.game_db.status == "registration":
+            await registration_message(self.store.vk_api, self.peer_id, self.timeout_with_elapsed_time, self.setting_title)
             await self.registration()
+        if self.game_db.status == "started":
+            user_id = self.game_db.current_move
+            name = self.get_player_name_by_user_id(user_id)
+            await player_move_message(self.store.vk_api, self.peer_id, name, self.game_db.last_word, self.timeout_with_elapsed_time)
+            self.task = asyncio.create_task(self._timer(self.timeout_with_elapsed_time, self.timeout_word))
+        if self.game_db.status == "started":
+            await vote_message(self.store.vk_api, self.peer_id, self.game_db.vote_word, self.timeout_with_elapsed_time)
+            self.task = asyncio.create_task(self._timer(self.timeout_with_elapsed_time, self.check_vote, self.game_db.vote_word))
+        await self.store.words.patch_game(self.game_db.id, elapsed_time=0)
 
-    async def registration(self):
+    async def registration(self, setting: Optional[SettingModel]):
         """переводит игру в состояние регистрации и запускает таймер"""
-        await self.store.words.patch_game(self.game_db.id, status="registration", event_timestamp=datetime.now())
+        await self.store.words.patch_game(self.game_db.id, status="registration", event_timestamp=datetime.now(), setting_id=setting.id)
         self.task = asyncio.create_task(self._timer(self.timeout_with_elapsed_time, self.check_registration))
         return
 
@@ -80,6 +92,7 @@ class Game:
         """по окончании таймера регистрации проверяет количество игроков и запускает игру"""
         self.game_db = await self.store.words.get_game_by_id(self.game_db.id)
         players = [str(player.user_id) for player in self.game_db.players]
+        await self.store.words.patch_game(self.game_db.id, elapsed_time=0)
         if len(players) < 2:
             self.game_db = await self.store.words.clear_game(self.game_db.id)
             await registration_failed_message(self.store.vk_api, self.peer_id)
@@ -92,12 +105,15 @@ class Game:
         random.shuffle(players)
         moves_order = " ".join(players)
         # генерация первого слова
-        words = await self.store.words.list_words(True)
+        if self.game_db.setting.title == 'города':
+            words = await self.store.words.list_cities()
+        else:
+            words = await self.store.words.list_words(True)
         if words:
             word = random.choice(tuple(word.title for word in words))
         else:
-            await self.store.words.create_word("корова", True)
-            word = "корова"
+            await self.store.words.create_word("Орел", True)
+            word = "Орел"
         await self.store.words.create_used_word(word, self.game_db.id)
 
         user_id = int(players[0])
@@ -121,10 +137,11 @@ class Game:
             if callback is not None:
                 await callback(*args, **kwargs)
         except asyncio.CancelledError as e:
-            print(e)
-            now = datetime.now(tz=pytz.UTC)
-            elapsed_time = (now - self.game_db.event_timestamp).seconds
-            await self.store.words.patch_game(self.game_db.id, elapsed_time=elapsed_time)
+            if e != 'normal':
+                print(e)
+                now = datetime.now(tz=pytz.UTC)
+                elapsed_time = (now - self.game_db.event_timestamp).seconds
+                await self.store.words.patch_game(self.game_db.id, elapsed_time=elapsed_time)
             raise
 
     async def reload(self):
@@ -220,21 +237,28 @@ class Game:
             await self.next_player(False, word)
             return
         # проверка на наличие слова в словаре
-        existed_word = await self.store.words.get_word_by_title(word)
-        if existed_word:
-            if existed_word.is_correct is False:
-                name = self.get_player_name_by_user_id(self.game_db.current_move)
-                await player_word_in_black_list(self.store.vk_api, self.peer_id, name, word)
+        name = self.get_player_name_by_user_id(self.game_db.current_move)
+        if self.game_db.setting.title == 'города':
+            existed_city = await self.store.words.get_city_by_title(word.capitalize())
+            if not existed_city:
+                await city_doesnt_exist(self.store.vk_api, self.peer_id, name, word)
                 await self.next_player(False, word)
                 return
         else:
-            # запуск голосования
-            await self.store.words.patch_game(
-                self.game_db.id, event_timestamp=datetime.now(), status="vote_word", vote_word=word
-            )
-            await vote_message(self.store.vk_api, self.peer_id, word, self.game_db.setting.timeout)
-            self.task = asyncio.create_task(self._timer(self.timeout_with_elapsed_time, self.check_vote, word))
-            return
+            existed_word = await self.store.words.get_word_by_title(word)
+            if existed_word:
+                if existed_word.is_correct is False:
+                    await player_word_in_black_list(self.store.vk_api, self.peer_id, name, word)
+                    await self.next_player(False, word)
+                    return
+            else:
+                # запуск голосования
+                await self.store.words.patch_game(
+                    self.game_db.id, event_timestamp=datetime.now(), status="vote_word", vote_word=word
+                )
+                await vote_message(self.store.vk_api, self.peer_id, word, self.game_db.setting.timeout)
+                self.task = asyncio.create_task(self._timer(self.timeout_with_elapsed_time, self.check_vote, word))
+                return
         await self.next_player(True, word)
 
     @staticmethod
@@ -250,10 +274,12 @@ class Game:
         """обрабатывает таймаут на ход игрока"""
         name = self.get_player_name_by_user_id(self.game_db.current_move)
         await player_timeout_message(self.store.vk_api, self.peer_id, name)
+        await self.store.words.patch_game(self.game_db.id, elapsed_time=0)
         await self.next_player(False, None)
 
     async def check_vote(self, word):
         """ проверка результатов голосования"""
+        await self.store.words.patch_game(self.game_db.id, elapsed_time=0)
         results = await self.store.words.list_votes(self.game_db.id, word)
         pos = len(list(filter(lambda x: x.is_correct, results)))
         neg = len(list(filter(lambda x: x.is_correct is False, results)))
