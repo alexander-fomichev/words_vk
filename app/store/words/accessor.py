@@ -10,7 +10,7 @@ from app.words.models import (
     SettingModel,
     GameModel,
     PlayerModel,
-    UsedWordModel, VoteModel,
+    UsedWordModel, VoteModel, CityModel,
 )
 
 
@@ -175,16 +175,9 @@ class WordsAccessor(BaseAccessor):
             response = await session.execute(query)
             return list(response.scalars().unique())
 
-    async def list_active_games(self, peer_id: Optional[int] = None) -> list[GameModel]:
+    async def list_active_games(self, peer_id: int) -> list[GameModel]:
         query = select(GameModel)
-        if peer_id is not None:
-            query = query.where(and_
-                (
-                GameModel.peer_id == peer_id, GameModel.status.astext.cast(String).not_like("finished")
-            )
-            )
-        else:
-            query = query.where(GameModel.status.astext.cast(String).not_like("finished"))
+        query = query.where(GameModel.status.astext.cast(String).not_like("finished"))
         query = (
             query.options(joinedload(GameModel.players))
                 .options(joinedload(GameModel.setting))
@@ -224,6 +217,7 @@ class WordsAccessor(BaseAccessor):
     async def patch_game(
             self,
             id,
+            setting_id: Optional[int] = None,
             last_word: Optional[str] = None,
             status: Optional[str] = None,
             moves_order: Optional[str] = None,
@@ -253,9 +247,11 @@ class WordsAccessor(BaseAccessor):
                 if current_move is not None:
                     game.current_move = current_move
                 if elapsed_time is not None:
-                    game.pause_timestamp = elapsed_time
+                    game.elapsed_time = elapsed_time
                 if vote_word is not None:
                     game.vote_word = vote_word
+                if setting_id is not None:
+                    game.setting_id = setting_id
                 await session.commit()
         return game
 
@@ -345,19 +341,19 @@ class WordsAccessor(BaseAccessor):
         query = select(UsedWordModel).where(and_(UsedWordModel.title == title, UsedWordModel.game_id == game_id))
         async with self.app.database.session() as session:
             response = await session.execute(query)
-            setting = response.scalar()
-        if setting is None:
+            used_word = response.scalar()
+        if used_word is None:
             return
-        return setting
+        return used_word
 
     async def get_used_word_by_id(self, used_word_id: int) -> Optional[UsedWordModel]:
         query = select(UsedWordModel).where(UsedWordModel.id == used_word_id)
         async with self.app.database.session() as session:
             response = await session.execute(query)
-            setting = response.scalar()
-        if setting is None:
+            used_word = response.scalar()
+        if used_word is None:
             return
-        return setting
+        return used_word
 
     async def create_vote(self, game_id: int, player_id: int, title: str, is_correct: bool) -> VoteModel:
         new_vote = VoteModel(game_id=game_id, player_id=player_id, title=title, is_correct=is_correct)
@@ -375,6 +371,21 @@ class WordsAccessor(BaseAccessor):
 
     async def list_votes(self, game_id: int, title: str) -> list[VoteModel]:
         query = select(VoteModel).where(and_(VoteModel.game_id == game_id, VoteModel.title == title))
+        async with self.app.database.session() as session:
+            response = await session.execute(query)
+            return list(response.scalars().unique())
+
+    async def get_city_by_title(self, title: str) -> Optional[CityModel]:
+        query = select(CityModel).where(CityModel.title == title)
+        async with self.app.database.session() as session:
+            response = await session.execute(query)
+            city = response.scalar()
+        if city is None:
+            return
+        return city
+
+    async def list_cities(self, limit: int = 10, offset: int = 0) -> list[CityModel]:
+        query = select(CityModel).limit(limit).offset(offset)
         async with self.app.database.session() as session:
             response = await session.execute(query)
             return list(response.scalars().unique())

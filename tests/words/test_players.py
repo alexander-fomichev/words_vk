@@ -104,7 +104,8 @@ class TestPlayerAddView:
                 "user_id": 30,
                 "status": "Active",
                 "online": True,
-                "name": "test"
+                "name": "test",
+                "score": 0
             },
         )
         player = await store.words.get_player(data["data"]["id"])
@@ -219,7 +220,7 @@ class TestIntegration:
                 "players": [
                     asdict(
                         PlayerModel(
-                            id=player_id, user_id=30, game_id=game_1.id, name="test", status="Active", online=True
+                            id=player_id, user_id=30, game_id=game_1.id, name="test", status="Active", online=True, score=0
                         )
                     )
                 ]
@@ -254,6 +255,7 @@ class TestPlayerPatchView:
                 "user_id": player_1.user_id,
                 "online": player_1.online,
                 "name": player_1.name,
+                "score": 0,
             }
         )
 

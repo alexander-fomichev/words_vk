@@ -53,7 +53,7 @@ class View(AiohttpView):
 
 
 app = Application()
-# asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
 def setup_app(config_path: str) -> Application:
