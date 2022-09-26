@@ -70,21 +70,25 @@ class Game:
         """восстановления состояния игры после перезагрузки"""
         self.setting_title = self.game_db.setting.title
         if self.game_db.status == "registration":
-            await registration_message(self.store.vk_api, self.peer_id, self.timeout_with_elapsed_time, self.setting_title)
+            # await registration_message(self.store.vk_api, self.peer_id, self.timeout_with_elapsed_time, self.setting_title)
             await self.registration()
         if self.game_db.status == "started":
             user_id = self.game_db.current_move
             name = self.get_player_name_by_user_id(user_id)
             await player_move_message(self.store.vk_api, self.peer_id, name, self.game_db.last_word, self.timeout_with_elapsed_time)
             self.task = asyncio.create_task(self._timer(self.timeout_with_elapsed_time, self.timeout_word))
-        if self.game_db.status == "started":
+        if self.game_db.status == "vote_word":
             await vote_message(self.store.vk_api, self.peer_id, self.game_db.vote_word, self.timeout_with_elapsed_time)
             self.task = asyncio.create_task(self._timer(self.timeout_with_elapsed_time, self.check_vote, self.game_db.vote_word))
         await self.store.words.patch_game(self.game_db.id, elapsed_time=0)
 
-    async def registration(self, setting: Optional[SettingModel]):
+    async def registration(self, setting: Optional[SettingModel] = None):
         """переводит игру в состояние регистрации и запускает таймер"""
-        await self.store.words.patch_game(self.game_db.id, status="registration", event_timestamp=datetime.now(), setting_id=setting.id)
+        if setting is None:
+            setting_id = None
+        else:
+            setting_id = setting.id
+        await self.store.words.patch_game(self.game_db.id, status="registration", event_timestamp=datetime.now(), setting_id=setting_id)
         self.task = asyncio.create_task(self._timer(self.timeout_with_elapsed_time, self.check_registration))
         return
 
@@ -126,7 +130,7 @@ class Game:
             last_word=word,
         )
         name = self.get_player_name_by_user_id(user_id)
-        await player_move_message(self.store.vk_api, self.peer_id, name, word, self.game_db.setting.timeout)
+        await player_move_message(self.store.vk_api, self.peer_id, name, word, self.timeout_with_elapsed_time)
         await self.reload()
         self.task = asyncio.create_task(self._timer(self.timeout_with_elapsed_time, self.timeout_word))
 

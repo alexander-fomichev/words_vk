@@ -142,10 +142,10 @@ async def status_message(api: "VkApiAccessor", peer_id: int, status: str, data: 
         msg = f"Игра еще не началась. Для начала регистрации напишите слова или города"
     elif status == "registration":
         msg = f"Идет регистрация. Зарегистрированы следующие игроки\n"
-        msg += '\n'.join([f"{player[0]}. {player[1]}" for player in data])
+        msg += ' '.join([f"{player[0]}. {player[1]}" for player in data])
     else:
-        msg = f"Счет игры:\n"
-        msg += '\n'.join([f"{player[0]}. {player[1]}: {player[2]}" for player in data])
+        msg = f"Счет игры: "
+        msg += ' '.join([f"{player[0]}. {player[1]}: {player[2]}" for player in data])
 
     await api.send_message(
         Message(

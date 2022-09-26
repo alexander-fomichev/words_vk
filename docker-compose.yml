@@ -9,8 +9,10 @@ services:
     command: bash -c "alembic upgrade head && python main.py"
     networks:
       - vk_bot_network
+    expose:
+      - 8080
     ports:
-      - "8000:8000"
+      - "8080:8080"
     depends_on:
       - kts_postgres
 
