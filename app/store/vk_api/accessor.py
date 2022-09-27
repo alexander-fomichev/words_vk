@@ -1,16 +1,22 @@
+import asyncio
+import pickle
 import random
-import typing
-from typing import Optional, List
 
-from aiohttp import TCPConnector
-from aiohttp.client import ClientSession
+import typing
+from typing import Optional
+
+import aio_pika
+from aio_pika import connect
+from aio_pika.abc import AbstractConnection, AbstractChannel, AbstractQueue
+from aiohttp import ClientSession, TCPConnector
 
 from app.base.base_accessor import BaseAccessor
+
 from app.store.vk_api.dataclasses import Message, Update, UpdateObject, Player
-from app.store.vk_api.poller import Poller
 
 if typing.TYPE_CHECKING:
     from app.web.app import Application
+    from app.store.bot.manager import BotManager
 
 API_PATH = "https://api.vk.com/method/"
 
@@ -18,10 +24,12 @@ API_PATH = "https://api.vk.com/method/"
 class VkApiAccessor(BaseAccessor):
     def __init__(self, app: "Application", *args, **kwargs):
         super().__init__(app, *args, **kwargs)
+        self.connection: Optional[AbstractConnection] = None
+        self.channel: Optional[AbstractChannel] = None
+        self.queue: Optional[AbstractQueue] = None
         self.session: Optional[ClientSession] = None
         self.key: Optional[str] = None
         self.server: Optional[str] = None
-        self.poller: Optional[Poller] = None
         self.ts: Optional[int] = None
 
     async def connect(self, app: "Application"):
@@ -30,13 +38,24 @@ class VkApiAccessor(BaseAccessor):
             await self._get_long_poll_service()
         except Exception as e:
             self.logger.error("Exception", exc_info=e)
-        self.poller = Poller(app.store)
-        self.logger.info("start polling")
-        await self.poller.start()
+        self.logger.info("waiting for messages")
+        self.connection = await connect(f"amqp://guest:guest@rabbitmq/")
+        self.channel = await self.connection.channel()
+        self.queue = await self.channel.declare_queue("test_queue", auto_delete=True)
+        await self.queue.consume(self.process_message)
+
+    async def process_message(self,
+                              message: aio_pika.abc.AbstractIncomingMessage,
+                              ) -> None:
+        async with message.process():
+            update_dict = (pickle.loads(message.body))
+            update_object = UpdateObject(**update_dict)
+            print(update_object)
+            await self.app.store.bots_manager.handle_updates(update_object)
 
     async def disconnect(self, app: "Application"):
-        if self.poller:
-            await self.poller.stop()
+        if self.connection:
+            await self.connection.close()
         if self.session:
             await self.session.close()
 
@@ -66,40 +85,6 @@ class VkApiAccessor(BaseAccessor):
             self.ts = data["ts"]
             self.logger.info(self.server)
 
-    async def poll(self):
-        async with self.session.get(
-            self._build_query(
-                host=self.server,
-                method="",
-                params={
-                    "act": "a_check",
-                    "key": self.key,
-                    "ts": self.ts,
-                    "wait": 5,
-                },
-            )
-        ) as resp:
-            data = await resp.json()
-            self.logger.info(data)
-            ts = data.get("ts", None)
-            updates = []
-            if ts is not None:
-                self.ts = ts
-                raw_updates = data.get("updates", [])
-                for update in raw_updates:
-                    updates.append(
-                        Update(
-                            type=update["type"],
-                            object=UpdateObject(
-                                peer_id=update["object"]["message"]["peer_id"],
-                                user_id=update["object"]["message"]["from_id"],
-                                body=update["object"]["message"]["text"],
-                            ),
-                        )
-                    )
-        print(updates)
-        return updates
-
     async def send_message(self, message: Message) -> None:
         async with self.session.get(
             self._build_query(
@@ -116,7 +101,7 @@ class VkApiAccessor(BaseAccessor):
             data = await resp.json()
             self.logger.info(data)
 
-    async def get_players(self, peer_id) -> List[Player]:
+    async def get_players(self, peer_id) -> list[Player]:
         async with self.session.get(
             self._build_query(
                 API_PATH,
