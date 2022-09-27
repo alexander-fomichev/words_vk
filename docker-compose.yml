@@ -1,6 +1,26 @@
 version: '3.8'
 
 services:
+  rabbitmq:
+    container_name: rabbitmq
+    image: 'rabbitmq:3.6-management-alpine'
+    expose:
+      - 5672
+      - 15672
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+    networks:
+       - vk_bot_network
+    healthcheck:
+      timeout: 5s
+      interval: 5s
+      retries: 5
+      test:
+        - "CMD"
+        - "rabbitmqctl"
+        - "status"
+
   bot_app:
     container_name: bot_app
     build:
@@ -14,7 +34,21 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - kts_postgres
+      rabbitmq:
+        condition: service_healthy
+      kts_postgres:
+        condition: service_started
+
+  poller:
+    container_name: poller
+    build:
+      context: poller/
+      dockerfile: Dockerfile
+    networks:
+      - vk_bot_network
+    depends_on:
+      rabbitmq:
+          condition: service_healthy
 
   kts_postgres:
     container_name: kts_postgres
@@ -31,7 +65,6 @@ services:
       - "5432:5432"
     networks:
       - vk_bot_network
-
 
 networks:
   vk_bot_network:
